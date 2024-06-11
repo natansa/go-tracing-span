@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -8,14 +9,50 @@ import (
 	"net/http"
 
 	"github.com/natansa/temperatura-cep/services"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type RequestBody struct {
 	Zipcode string `json:"cep"`
 }
 
+var tracer trace.Tracer
+
+func initTracer() *sdktrace.TracerProvider {
+	ctx := context.Background()
+	exporter, err := otlptracegrpc.New(ctx,
+		otlptracegrpc.WithInsecure(),
+		otlptracegrpc.WithEndpoint("otel-collector:4317"),
+	)
+	if err != nil {
+		log.Fatalf("failed to create OTLP trace exporter: %v", err)
+	}
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceNameKey.String("serviceb"),
+		)),
+	)
+	otel.SetTracerProvider(tp)
+	return tp
+}
+
 func main() {
+	tp := initTracer()
+	defer func() { _ = tp.Shutdown(context.Background()) }()
+
+	tracer = otel.Tracer("serviceb")
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		_, span := tracer.Start(r.Context(), "zipcodeHandler")
+		defer span.End()
+
 		if r.Method != http.MethodPost {
 			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 			return
@@ -34,11 +71,16 @@ func main() {
 			return
 		}
 
+		if len(requestBody.Zipcode) != 8 {
+			http.Error(w, "Invalid zipcode", http.StatusUnprocessableEntity)
+			return
+		}
+
 		zipcodeHandler := services.NewZipcodeHandler()
 		cityName, err := zipcodeHandler.FetchCityNameFromZipcode(requestBody.Zipcode)
 
 		if err != nil {
-			http.Error(w, "can not find zipcode", http.StatusNotFound)
+			http.Error(w, "Cannot find zipcode", http.StatusNotFound)
 			return
 		}
 
@@ -46,7 +88,7 @@ func main() {
 		tempCelsius, err := weatherService.FetchWeather(cityName)
 
 		if err != nil {
-			http.Error(w, "error fetching weather information", http.StatusInternalServerError)
+			http.Error(w, "Error fetching weather information", http.StatusInternalServerError)
 			return
 		}
 
@@ -64,6 +106,6 @@ func main() {
 		json.NewEncoder(w).Encode(response)
 	})
 
-	fmt.Println("Service A is running on http://localhost:8081")
+	fmt.Println("Service B is running on http://localhost:8081")
 	log.Fatal(http.ListenAndServe(":8081", nil))
 }
