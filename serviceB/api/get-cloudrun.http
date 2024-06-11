@@ -1,3 +1,0 @@
-GET sistema-de-temperatura-por-cep-rdjevgnlhq-uc.a.run.app/weather?zipcode=08673000 HTTP/1.1
-Host: sistema-de-temperatura-por-cep-rdjevgnlhq-uc.a.run.app
-Content-Type: application/json
