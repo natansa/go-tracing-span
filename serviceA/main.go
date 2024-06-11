@@ -51,7 +51,7 @@ func main() {
 	tracer = otel.Tracer("servicea")
 
 	http.HandleFunc("/weather", func(w http.ResponseWriter, r *http.Request) {
-		_, span := tracer.Start(r.Context(), "weatherHandler")
+		ctx, span := tracer.Start(r.Context(), "weatherHandler")
 		defer span.End()
 
 		if r.Method != http.MethodPost {
@@ -86,7 +86,10 @@ func main() {
 		client := http.Client{
 			Transport: otelhttp.NewTransport(http.DefaultTransport),
 		}
-		resp, err := client.Post(url, "application/json", responseBody)
+		req, _ := http.NewRequestWithContext(ctx, "POST", url, responseBody)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := client.Do(req)
 		if err != nil {
 			http.Error(w, "Error making request to external service", http.StatusInternalServerError)
 			return

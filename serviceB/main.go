@@ -50,7 +50,7 @@ func main() {
 	tracer = otel.Tracer("serviceb")
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		_, span := tracer.Start(r.Context(), "zipcodeHandler")
+		ctx, span := tracer.Start(r.Context(), "zipcodeHandler")
 		defer span.End()
 
 		if r.Method != http.MethodPost {
@@ -85,7 +85,9 @@ func main() {
 		}
 
 		weatherService := services.NewWeatherService()
+		_, tempSpan := tracer.Start(ctx, "FetchWeather")
 		tempCelsius, err := weatherService.FetchWeather(cityName)
+		tempSpan.End()
 
 		if err != nil {
 			http.Error(w, "Error fetching weather information", http.StatusInternalServerError)

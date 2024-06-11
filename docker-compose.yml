@@ -27,6 +27,8 @@ services:
     ports:
       - "4317:4317"
       - "55681:55681"
+    depends_on:
+      - zipkin
     networks:
       - meuservico-network
 
@@ -39,17 +41,10 @@ services:
     networks:
       - meuservico-network
 
-  jaeger:
-    image: jaegertracing/all-in-one:latest
+  zipkin:
+    image: openzipkin/zipkin
     ports:
-      - "5775:5775/udp"
-      - "6831:6831/udp"
-      - "6832:6832/udp"
-      - "5778:5778"
-      - "16686:16686"
-      - "14268:14268"
-      - "14250:14250"
-      - "9411:9411"
+      - "9411:9411"  # Note que a porta correta é 9411
     networks:
       - meuservico-network
 

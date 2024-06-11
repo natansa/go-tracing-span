@@ -5,13 +5,11 @@ receivers:
       http:
 
 exporters:
-  otlp:
-    endpoint: "jaeger:4317"
-    tls:
-      insecure: true
+  zipkin:
+    endpoint: "http://zipkin:9411/api/v2/spans"  # Note que a porta correta é 9411
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
-      exporters: [otlp]
+      exporters: [zipkin]
