@@ -38,7 +38,7 @@ func main() {
 			return
 		}
 
-		url := "http://localhost:8081"
+		url := "http://serviceb:8081"
 		postBody, _ := json.Marshal(map[string]string{
 			"cep": requestBody.Zipcode,
 		})
