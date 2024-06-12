@@ -103,11 +103,6 @@ func weatherHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		http.Error(w, "External service returned an error", resp.StatusCode)
-		return
-	}
-
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		http.Error(w, "Error reading response from external service", http.StatusInternalServerError)
@@ -115,7 +110,7 @@ func weatherHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(resp.StatusCode)
 	w.Write(respBody)
 }
 
