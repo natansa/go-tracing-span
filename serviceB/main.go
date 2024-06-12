@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/natansa/temperatura-cep/services"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
@@ -45,20 +46,14 @@ func initTracer() *sdktrace.TracerProvider {
 		)),
 	)
 	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.TraceContext{})
 	return tp
 }
 
 func zipcodeHandler(w http.ResponseWriter, r *http.Request) {
-	carrier := propagation.HeaderCarrier(r.Header)
 	ctx := r.Context()
-	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
-
-	ctx, spanReqSvcB := tracer.Start(ctx, "SPAN_END_SVC_B")
-	spanReqSvcB.End()
-
-	time.Sleep(time.Millisecond * 500)
-
-	ctx, span := tracer.Start(ctx, "serviceb")
+	ctx = otel.GetTextMapPropagator().Extract(ctx, propagation.HeaderCarrier(r.Header))
+	ctx, span := tracer.Start(ctx, "serviceb-zipcodeHandler")
 	defer span.End()
 
 	time.Sleep(time.Millisecond * 500)
@@ -127,7 +122,7 @@ func main() {
 	r.Use(middleware.Timeout(60 * time.Second))
 
 	r.Handle("/metrics", promhttp.Handler())
-	r.Post("/", zipcodeHandler)
+	r.Method("POST", "/", otelhttp.NewHandler(http.HandlerFunc(zipcodeHandler), "zipcodeHandler"))
 
 	fmt.Println("Service B is running on http://localhost:8081")
 	log.Fatal(http.ListenAndServe(":8081", r))

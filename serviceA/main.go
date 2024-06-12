@@ -46,20 +46,13 @@ func initTracer() *sdktrace.TracerProvider {
 		)),
 	)
 	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.TraceContext{})
 	return tp
 }
 
 func weatherHandler(w http.ResponseWriter, r *http.Request) {
-	carrier := propagation.HeaderCarrier(r.Header)
 	ctx := r.Context()
-	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
-
-	ctx, spanReqSvcB := tracer.Start(ctx, "SPAN_REQ_SVC_B")
-	spanReqSvcB.End()
-
-	time.Sleep(time.Millisecond * 500)
-
-	ctx, span := tracer.Start(ctx, "servicea")
+	ctx, span := tracer.Start(ctx, "servicea-weatherHandler")
 	defer span.End()
 
 	time.Sleep(time.Millisecond * 500)
@@ -128,7 +121,7 @@ func main() {
 	r.Use(middleware.Timeout(60 * time.Second))
 
 	r.Handle("/metrics", promhttp.Handler())
-	r.Post("/weather", weatherHandler)
+	r.Method("POST", "/weather", otelhttp.NewHandler(http.HandlerFunc(weatherHandler), "weatherHandler"))
 
 	fmt.Println("Service A is running on http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", r))
